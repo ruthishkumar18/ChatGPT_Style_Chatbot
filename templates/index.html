@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ChatGPT-Style Chatbot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .chat-box {
+      border: 1px solid #ccc;
+      padding: 15px;
+      height: 400px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+      background: #fafafa;
+    }
+    .chat-message {
+      margin: 10px 0;
+      padding: 10px 15px;
+      border-radius: 10px;
+      max-width: 75%;
+      clear: both;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+    .chat-user {
+      background-color: #d1e7ff;
+      float: right;
+      text-align: right;
+    }
+    .chat-bot {
+      background-color: #eeeeee;
+      float: left;
+      text-align: left;
+      position: relative;
+    }
+    .code-block {
+      background: #272822;
+      color: #f8f8f2;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      margin-top: 8px;
+      position: relative;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 5px;
+      right: 10px;
+      background: #444;
+      color: white;
+      border: none;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .diff-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    .diff-table th, .diff-table td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      background: #fff;
+      text-align: left;
+    }
+    .diff-table th {
+      background: #ddd;
+    }
+    .input-area {
+      display: flex;
+      gap: 10px;
+    }
+    input[type=text], input[type=password] {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+    }
+    button {
+      padding: 10px 14px;
+      font-size: 16px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .hidden { display: none; }
+    #history-list ul {
+      list-style: none;
+      padding: 0;
+    }
+    #history-list li {
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #history-list li a {
+      text-decoration: none;
+      background: #eee;
+      padding: 6px;
+      border-radius: 6px;
+      flex: 1;
+    }
+    #history-list li button {
+      margin-left: 8px;
+      background: #28a745;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div id="login-area">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Username" />
+    <input type="password" id="password" placeholder="Password" />
+    <button onclick="login()">Login</button>
+    <button onclick="register()">Register</button>
+    <button onclick="location.href='/admin-login'">🛠 Admin Login</button>
+    <p id="login-error" style="color:red;"></p>
+  </div>
+
+  <div id="chat-ui" class="hidden">
+    <h1>ChatGPT-Style Chatbot</h1>
+    <div class="input-area" style="margin-bottom: 10px;">
+      <button onclick="newChat()">🆕 New Chat</button>
+      <button onclick="toggleHistory()">📜 History</button>
+      <button onclick="exportChat()">📄 Export PDF</button>
+      <button onclick="logout()">🚪 Logout</button>
+    </div>
+    <div id="history-list" class="hidden"></div>
+    <div id="chat-box" class="chat-box"></div>
+    <div class="input-area">
+      <input type="text" id="user-input" placeholder="Type a message..." />
+      <button onclick="sendMessage()">Send</button>
+      <button onclick="startVoice()">🎤</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let chatSession = [];
+  let chatTitle = "";
+  let fromHistory = false;
+
+  window.onload = () => {
+    const user = localStorage.getItem("username");
+    if (user) {
+      document.getElementById("login-area").style.display = "none";
+      document.getElementById("chat-ui").classList.remove("hidden");
+    }
+  };
+
+  async function login() {
+    const user = document.getElementById("username").value;
+    const pass = document.getElementById("password").value;
+    const res = await fetch("/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: user, password: pass })
+    });
+    if (res.ok) {
+      localStorage.setItem("username", user);
+      document.getElementById("login-area").style.display = "none";
+      document.getElementById("chat-ui").classList.remove("hidden");
+    } else {
+      document.getElementById("login-error").innerText = "Invalid credentials.";
+    }
+  }
+
+  async function register() {
+    const user = document.getElementById("username").value;
+    const pass = document.getElementById("password").value;
+    const res = await fetch("/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: user, password: pass })
+    });
+    if (res.ok) {
+      alert("Registered! You can now log in.");
+    } else {
+      alert("User already exists.");
+    }
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById("user-input");
+    const message = input.value.trim();
+    if (!message) return;
+
+    addMessage("user", message);
+    chatSession.push({ role: "user", content: message });
+    input.value = "";
+
+    const res = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user: localStorage.getItem("username"), message })
+    });
+
+    const data = await res.json();
+    chatTitle = data.title;
+    const botText = data.response;
+
+    if (fromHistory) {
+      addMessage("assistant", botText);
+    } else if (botText.includes("|")) {
+      displayAsTable(botText);
+    } else if (botText.includes("```")) {
+      displayAsBlock(botText);
+    } else {
+      typeMessage(botText);
+    }
+
+    chatSession.push({ role: "assistant", content: botText });
+    fromHistory = false;
+  }
+
+  function addMessage(role, text) {
+    const chatBox = document.getElementById("chat-box");
+    const msg = document.createElement("div");
+    msg.className = `chat-message chat-${role}`;
+    msg.textContent = text;
+    chatBox.appendChild(msg);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function typeMessage(text) {
+    const chatBox = document.getElementById("chat-box");
+    const msg = document.createElement("div");
+    msg.className = "chat-message chat-bot";
+    msg.textContent = "";
+    chatBox.appendChild(msg);
+    let i = 0;
+    const speed = 1;
+    const type = setInterval(() => {
+      if (i < text.length) {
+        msg.textContent += text[i++];
+        chatBox.scrollTop = chatBox.scrollHeight;
+      } else {
+        clearInterval(type);
+      }
+    }, speed);
+  }
+
+  function displayAsBlock(text) {
+    const chatBox = document.getElementById("chat-box");
+    const msg = document.createElement("div");
+    msg.className = "chat-message chat-bot";
+    const code = text.split("```")[1]?.trim() || text;
+
+    const codeDiv = document.createElement("div");
+    codeDiv.className = "code-block";
+    codeDiv.textContent = code;
+
+    const copy = document.createElement("button");
+    copy.innerText = "Copy";
+    copy.className = "copy-btn";
+    copy.onclick = () => navigator.clipboard.writeText(codeDiv.textContent);
+
+    msg.appendChild(copy);
+    msg.appendChild(codeDiv);
+    chatBox.appendChild(msg);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function displayAsTable(text) {
+    const lines = text.trim().split("\n");
+    const headers = lines[0].split("|").filter(h => h.trim());
+    const table = document.createElement("table");
+    table.className = "diff-table";
+
+    const thead = table.createTHead();
+    const headerRow = thead.insertRow();
+    headers.forEach(h => {
+      const th = document.createElement("th");
+      th.innerText = h.trim();
+      headerRow.appendChild(th);
+    });
+
+    const tbody = table.createTBody();
+    lines.slice(2).forEach(line => {
+      const row = tbody.insertRow();
+      line.split("|").filter(c => c.trim()).forEach(c => {
+        const td = row.insertCell();
+        td.innerText = c.trim();
+      });
+    });
+
+    const container = document.createElement("div");
+    container.className = "chat-message chat-bot";
+    container.appendChild(table);
+
+    const chatBox = document.getElementById("chat-box");
+    chatBox.appendChild(container);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function exportChat() {
+    fetch("/export-pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "user": localStorage.getItem("username") },
+      body: JSON.stringify({ session: chatSession, title: chatTitle || "chat_export" })
+    }).then(res => res.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, "_blank");
+      });
+  }
+
+  async function toggleHistory() {
+    const list = document.getElementById("history-list");
+    list.classList.toggle("hidden");
+    if (!list.classList.contains("hidden")) {
+      const res = await fetch("/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: localStorage.getItem("username") })
+      });
+      const data = await res.json();
+      if (data.length === 0) {
+        list.innerHTML = "<p>No chat history found.</p>";
+      } else {
+        list.innerHTML = `<ul>${data.map(item =>
+          `<li>
+            <a href="#" onclick="loadChat('${item.filename}')">${item.title}</a>
+            <button onclick="downloadChat('${item.filename}')">⬇️</button>
+          </li>`).join("")}</ul>`;
+      }
+    }
+  }
+
+  async function loadChat(filename) {
+    const res = await fetch("/load-history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename })
+    });
+    const data = await res.json();
+    chatSession = data.chat;
+    chatTitle = data.title;
+    fromHistory = true;
+    document.getElementById("chat-box").innerHTML = "";
+    chatSession.forEach(m => addMessage(m.role, m.content));
+  }
+
+  function downloadChat(filename) {
+    fetch("/download-text", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename })
+    })
+      .then(res => res.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename.replace(".json", ".txt");
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      });
+  }
+
+  function newChat() {
+    chatSession = [];
+    chatTitle = "";
+    fromHistory = false;
+    document.getElementById("chat-box").innerHTML = "";
+  }
+
+  function logout() {
+    localStorage.removeItem("username");
+    document.getElementById("chat-ui").classList.add("hidden");
+    document.getElementById("login-area").style.display = "block";
+  }
+
+  function startVoice() {
+    const recog = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recog.lang = "en-US";
+    recog.start();
+    recog.onresult = (e) => {
+      document.getElementById("user-input").value = e.results[0][0].transcript;
+      sendMessage();
+    };
+  }
+</script>
+</body>
+</html>

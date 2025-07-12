@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f0f2f5;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .box {
+      background: white;
+      padding: 20px;
+      margin-bottom: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #ccc;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      word-break: break-all;
+    }
+    th {
+      background: #eee;
+    }
+    a.download-link {
+      text-decoration: none;
+      color: #007bff;
+    }
+    ul {
+      list-style-type: none;
+      padding-left: 20px;
+    }
+    li {
+      margin: 10px 0;
+    }
+    .file-title {
+      font-weight: bold;
+      color: #333;
+    }
+    .file-meta {
+      font-size: 0.9em;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <h1>🛠 Admin Dashboard</h1>
+  <p style="text-align:center;"><a href="/admin-logout">🔒 Logout</a></p>
+
+  <div class="box">
+    <h2>👤 Registered Users</h2>
+    <table>
+      <tr><th>Username</th><th>Password</th></tr>
+      {% for username, password in users.items() %}
+        <tr><td>{{ username }}</td><td>{{ password }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="box">
+    <h2>📁 Chat History Files</h2>
+    {% if user_history %}
+      {% for user, files in user_history.items() %}
+        <h3>{{ user }}</h3>
+        <ul>
+          {% for file in files %}
+            {% set title = file.split('__')[-1].replace('.json', '').replace('_', ' ').strip() %}
+            <li>
+              <div class="file-title">📝 {{ title }}</div>
+              <div class="file-meta">📁 {{ file }}</div>
+              <a class="download-link" href="/download-history?file={{ file }}">Download JSON</a> |
+              <a class="download-link" href="/download-text?filename={{ file }}">Download TXT</a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endfor %}
+    {% else %}
+      <p>No chat history files found.</p>
+    {% endif %}
+  </div>
+</body>
+</html>
