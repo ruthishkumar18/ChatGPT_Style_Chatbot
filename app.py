@@ -9,7 +9,6 @@ import requests
 
 app = Flask(__name__)
 CORS(app)
-
 app.secret_key = "super-secret-key"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,11 +23,9 @@ if not os.path.exists(USERS_FILE):
 if not os.path.exists(HISTORY_DIR):
     os.makedirs(HISTORY_DIR)
 
-
 @app.route("/")
 def home():
     return render_template("index.html")
-
 
 @app.route("/register", methods=["POST"])
 def register():
@@ -48,7 +45,6 @@ def register():
 
     return jsonify({"success": True})
 
-
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
@@ -62,7 +58,6 @@ def login():
         return jsonify({"success": True})
     return jsonify({"success": False}), 401
 
-
 @app.route("/admin-login", methods=["GET", "POST"])
 def admin_login():
     if request.method == "POST":
@@ -73,7 +68,6 @@ def admin_login():
             return redirect("/admin-dashboard")
         return render_template("admin_login.html", error="Invalid credentials")
     return render_template("admin_login.html")
-
 
 @app.route("/admin-dashboard")
 def admin_dashboard():
@@ -94,12 +88,10 @@ def admin_dashboard():
 
     return render_template("admin.html", users=users, user_history=user_history)
 
-
 @app.route("/admin-logout")
 def admin_logout():
     session.pop("admin_logged_in", None)
     return redirect("/admin-login")
-
 
 @app.route("/download-history")
 def download_history():
@@ -108,7 +100,6 @@ def download_history():
     if os.path.exists(path):
         return send_file(path, as_attachment=True)
     return "File not found", 404
-
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -130,7 +121,7 @@ def chat():
     chat_history.append({"role": "user", "content": message})
 
     try:
-        # Chat API call for response
+        # Chat API call
         res = requests.post(OLLAMA_API, json={
             "model": "llama3",
             "messages": chat_history
@@ -148,7 +139,7 @@ def chat():
 
         chat_history.append({"role": "assistant", "content": bot_reply})
 
-        # Generate title from AI
+        # Title prompt to AI
         title_prompt = {
             "role": "user",
             "content": "Suggest a short 3-5 word title for this chat. Avoid punctuation."
@@ -178,8 +169,7 @@ def chat():
     except Exception as e:
         return jsonify({"response": f"⚠ Error: {str(e)}"}), 500
 
-
-@app.route("/export-pdf", methods=["POST"]) 
+@app.route("/export-pdf", methods=["POST"])
 def export_pdf():
     data = request.get_json()
     session_data = data.get("session", [])
@@ -189,11 +179,9 @@ def export_pdf():
 
     filepath = os.path.join(HISTORY_DIR, f"{user}__{filename}")
 
-    # Save JSON history
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump({"title": title, "chat": session_data}, f, indent=2)
 
-    # Export PDF
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", 'B', 14)
@@ -210,7 +198,6 @@ def export_pdf():
     pdf.output(pdf_file)
 
     return send_file(pdf_file, as_attachment=True)
-
 
 @app.route("/history", methods=["POST"])
 def history():
@@ -236,7 +223,6 @@ def history():
 
     return jsonify(history_list)
 
-
 @app.route("/load-history", methods=["POST"])
 def load_history():
     data = request.get_json()
@@ -250,7 +236,6 @@ def load_history():
         chat_data = json.load(f)
 
     return jsonify(chat_data)
-
 
 @app.route("/download-text", methods=["POST"])
 def download_text():
@@ -276,7 +261,6 @@ def download_text():
         txt_file.write(text_content)
 
     return send_file(txt_filename, as_attachment=True)
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
